@@ -500,8 +500,11 @@ void ui_init(void) {
     // because the title sits at TOP_MID. Also scale the 48×48 source icon
     // to 24×24 on tiny so it doesn't crowd the pct label below.
     if (L.scr_h < 280) {
-        lv_image_set_scale(battery_img, 128);   // 128 / 256 = 50% → 24×24
-        lv_obj_set_pos(battery_img, 4, 4);
+        // 48 × (170 / 256) ≈ 32 px. Anchor (2, -2) — slightly off the
+        // top-left so the visible glyph clears the Current panel below
+        // (which starts at content_y = 30).
+        lv_image_set_scale(battery_img, 170);
+        lv_obj_set_pos(battery_img, 2, -2);
     } else {
         lv_obj_set_pos(battery_img, L.scr_w - 48 - L.margin, L.title_y);
     }
