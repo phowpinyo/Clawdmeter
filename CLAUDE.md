@@ -6,10 +6,11 @@ via PlatformIO's `build_src_filter`. Adding a board means dropping in a new
 folder + a new `[env:...]` block — `main.cpp`, `ui.cpp`, and `splash.cpp`
 never see board-specific code. See [`docs/porting/adding-a-board.md`](docs/porting/adding-a-board.md).
 
-Two reference ports today:
+Three reference ports today:
 
 - `boards/waveshare_amoled_216/` — original Waveshare ESP32-S3-Touch-AMOLED-2.16 (CO5300, 480×480 square, CST9220 touch, IMU rotation). Build env: `waveshare_amoled_216`.
 - `boards/waveshare_amoled_18/` — Waveshare ESP32-S3-Touch-AMOLED-1.8 (SH8601, 368×448 portrait, FT3168 touch, XCA9554 IO expander). Build env: `waveshare_amoled_18`.
+- `boards/waveshare_lcd_154/` — Waveshare ESP32-S3-Touch-LCD-1.54 (ST7789 SPI, 240×240 IPS, CST816 touch, no PMU). Build env: `waveshare_lcd_154`.
 
 The shared code calls a small HAL (`firmware/src/hal/`) that each board implements: display, touch, input, power, IMU. Optional features are guarded by `BoardCaps` (runtime) and `BOARD_HAS_*` (compile-time) rather than `#ifdef BOARD_*`.
 
@@ -23,6 +24,14 @@ Connects to a host daemon over BLE; daemon polls Anthropic API for usage data. T
 - PMU: **AXP2101** on same I2C bus (addr=0x34) — battery, USB VBUS, PWR button IRQ
 - IMU: **QMI8658** on same I2C bus (addr=0x6B) — accelerometer for auto-rotation
 - Buttons: GPIO 0 (left → Space/voice-mode), GPIO 18 (right → Shift+Tab/mode-toggle), AXP PKEY (middle → cycle screens; on splash → cycle animations)
+
+### LCD-1.54 (smallest port)
+- Display: **ST7789** IPS LCD via SPI (DC=45, CS=21, SCLK=38, MOSI=39, RST=40). 4-wire SPI — *not* QSPI. Uses `Arduino_ESP32SPI` + `Arduino_ST7789` from GFX Library.
+- Backlight: GPIO 46, driven by `ledcAttach()` PWM. Brightness 0–255 maps directly to PWM duty.
+- Touch: **CST816** via I2C (SDA=42, SCL=41, INT=48, RST=47, addr=0x15). Driven by SensorLib's `TouchDrvCSTXXX`.
+- IMU: QMI8658 @ 0x6B on the same I2C bus (init for I2C health; rotation is currently **disabled** — see gotcha #11).
+- No PMU. The "PWR" button is a plain GPIO (GPIO 4, pull-up, active LOW) — `power.cpp` reads it directly and surfaces a falling-edge as `power_hal_pwr_pressed()`. `BOARD_HAS_BATTERY=0`, so the UI hides the battery indicator.
+- Buttons: GPIO 0 (BOOT → Space/voice-mode), GPIO 5 (PLUS → Shift+Tab/mode-toggle), GPIO 4 (PWR → cycle screens; on splash → cycle animations).
 
 ### AMOLED-1.8 (newer port)
 - Display: **SH8601** AMOLED via QSPI (CS=12, **SCLK=11** ← different!, SDIO0..3=4..7, RST routed via XCA9554 EXIO1)
@@ -47,6 +56,7 @@ firmware/src/
   boards/
     waveshare_amoled_216/   — CO5300 + CST9220 + AXP PKEY + QMI8658 rotation
     waveshare_amoled_18/    — SH8601 + FT3168 + AXP + XCA9554 (PWR via EXIO4), no rotation
+    waveshare_lcd_154/      — ST7789 SPI + CST816 + no PMU (PWR via GPIO), QMI8658 (rotation off)
     template/               — copy this to bootstrap a new port
   main.cpp                  — setup() + loop(): HAL calls only, zero #ifdef BOARD_*
   ui.{h,cpp}                — 3-screen UI (splash, usage, bluetooth). compute_layout() picks fonts/positions from board_caps() (responsive — current breakpoint: H >= 460 → large, else compact)
@@ -70,8 +80,10 @@ PlatformIO's `build_src_filter` includes shared code + one board's folder per en
 
 ```bash
 pio run -d firmware -e waveshare_amoled_216                                     # build 2.16 (default original)
-pio run -d firmware -e waveshare_amoled_18                                      # build 1.8 (new port)
+pio run -d firmware -e waveshare_amoled_18                                      # build 1.8
+pio run -d firmware -e waveshare_lcd_154                                        # build 1.54 (smallest)
 pio run -d firmware -e waveshare_amoled_18 -t upload --upload-port /dev/cu.usbmodem101   # flash 1.8 on macOS
+pio run -d firmware -e waveshare_lcd_154 -t upload --upload-port /dev/cu.usbmodem83101   # flash 1.54 on macOS
 pio run -d firmware -e waveshare_amoled_216 -t upload --upload-port /dev/ttyACM0         # flash 2.16 on Linux
 ```
 
@@ -97,6 +109,8 @@ The boot screen is `SCREEN_SPLASH` and only advances on a physical button press,
 8. **LVGL RGB565A8 is planar.** `w*h` RGB565 pixels followed by `w*h` alpha bytes; `data_size = w*h*3`, `stride = w*2`. Use `init_icon_dsc_rgb565a8()` for icons that overlap non-uniform backgrounds (e.g. battery over splash). Lucide source PNGs are black-on-transparent — converter must tint to white or icons render invisible. See `tools/png_to_lvgl.js`.
 9. **Per-board pre-init is `board_init()`.** Each board's `board_init.cpp` brings up `Wire` and any reset-gating IO expander BEFORE `display_hal_init()`. Skipping the IO expander release on AMOLED-1.8 leaves SH8601 + FT3168 in reset and they silently fail to probe.
 10. **No `#ifdef BOARD_*` in shared code.** The whole point of the refactor — if you're about to add one, you probably want a `BoardCaps` field or a per-board file instead. See `docs/porting/capability-flags.md`.
+11. **ST7789 `setRotation()` leaves a GRAM ghost.** Toggling rotation at runtime on the LCD-1.54 swaps MADCTL but does not clear the panel's display RAM, so the previous orientation's pixels persist in the new coordinate system as a visible overlay. Either follow `setRotation(rot)` with `gfx->fillScreen(0x0000)` immediately, or keep `BOARD_HAS_ROTATION=0` (the current 1.54 default). The square panel means static portrait works fine without rotation.
+12. **`apply_battery_visibility()` honors `caps.has_battery`.** The check was missing originally and `BOARD_HAS_BATTERY=0` ports (LCD-1.54) still drew the battery icon. The UI now hides it whenever `!board_caps().has_battery` — keep this when touching that function.
 
 ## Icons
 
@@ -120,6 +134,7 @@ See `~/.claude/projects/.../memory/` files for persistent context (user is an em
 
 ## Recent session highlights
 
+- **Third board port (2026-05-22):** Waveshare ESP32-S3-Touch-LCD-1.54 (240×240 IPS, ST7789 SPI, CST816 touch, no PMU). Smallest panel yet — added a "tiny" UI breakpoint (H < 280) to `compute_layout()`, lifted the previously-hardcoded usage screen fonts into the Layout struct, and hide logo/credits/anim on tiny screens to fit the layout. Fixed an existing `apply_battery_visibility()` bug that ignored `caps.has_battery`. IMU rotation is intentionally off (see gotcha #11).
 - **Device-abstraction refactor (2026-05-18).** All board-conditional code moved out of shared files into `boards/<name>/` and behind a HAL in `hal/`. ~30 `#ifdef BOARD_*` blocks went to zero. UI is responsive via `compute_layout()` driven by `board_caps()`. New ports add a folder + a PlatformIO env — no shared file edits.
 - Added second board port: Waveshare AMOLED-1.8 (368×448 portrait, SH8601, FT3168, XCA9554 IO expander).
 - Migrated from Panlee SC01 Plus (480×320 IPS) to Waveshare 2.16" AMOLED (480×480 square). Full hardware/library swap.
