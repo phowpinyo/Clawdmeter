@@ -30,8 +30,8 @@ Connects to a host daemon over BLE; daemon polls Anthropic API for usage data. T
 - Backlight: GPIO 46, driven by `ledcAttach()` PWM. Brightness 0–255 maps directly to PWM duty.
 - Touch: **CST816** via I2C (SDA=42, SCL=41, INT=48, RST=47, addr=0x15). Driven by SensorLib's `TouchDrvCSTXXX`.
 - IMU: QMI8658 @ 0x6B on the same I2C bus (init for I2C health; rotation is currently **disabled** — see gotcha #11).
-- No PMU. The "PWR" button is a plain GPIO (GPIO 4, pull-up, active LOW) — `power.cpp` reads it directly and surfaces a falling-edge as `power_hal_pwr_pressed()`. `BOARD_HAS_BATTERY=0`, so the UI hides the battery indicator.
-- Buttons: GPIO 0 (BOOT → Space/voice-mode), GPIO 5 (PLUS → Shift+Tab/mode-toggle), GPIO 4 (PWR → cycle screens; on splash → cycle animations).
+- No PMU. The "PWR" button is on **GPIO 5** (pull-up, active LOW); `power.cpp` reads it for short-press (cycle screen via `power_hal_pwr_pressed`) and long-press ≥3s (drives `BAT_POWER_GPIO=2` LOW to release the soft-power latch IC). `BOARD_HAS_BATTERY=0`, so the UI hides the battery indicator.
+- Buttons: GPIO 0 (BOOT → Space/voice-mode), GPIO 4 (PLUS → Shift+Tab/mode-toggle), GPIO 5 (PWR → cycle screens; on splash → cycle animations; long-press = shutdown).
 
 ### AMOLED-1.8 (newer port)
 - Display: **SH8601** AMOLED via QSPI (CS=12, **SCLK=11** ← different!, SDIO0..3=4..7, RST routed via XCA9554 EXIO1)

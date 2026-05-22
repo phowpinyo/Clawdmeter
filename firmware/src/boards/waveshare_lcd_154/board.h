@@ -44,8 +44,9 @@
 
 // ---- Buttons ----
 #define BTN_BACK_GPIO        0     // BOOT — primary, Space (PTT)
-#define BTN_FWD_GPIO         5     // PLUS — secondary, Shift+Tab (mode toggle)
-#define BTN_PWR_GPIO         4     // PWR — middle, cycle screens / cycle splash animation
+#define BTN_FWD_GPIO         4     // PLUS — secondary, Shift+Tab (mode toggle)
+#define BTN_PWR_GPIO         5     // PWR — middle, cycle screens; long-press 3s = shutdown
+                                   //  (mapping verified against Waveshare 01_factory ESP-IDF demo)
 
 // ---- Capability flags ----
 #define BOARD_HAS_SECONDARY_BUTTON 1
