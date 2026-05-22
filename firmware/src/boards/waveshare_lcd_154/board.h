@@ -49,7 +49,7 @@
 
 // ---- Capability flags ----
 #define BOARD_HAS_SECONDARY_BUTTON 1
-#define BOARD_HAS_ROTATION         0
+#define BOARD_HAS_ROTATION         1
 #define BOARD_HAS_IMU              1
 #define BOARD_HAS_BATTERY          0
 #define BOARD_HAS_IO_EXPANDER      0

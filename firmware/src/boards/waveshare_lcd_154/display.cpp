@@ -1,12 +1,16 @@
 #include "../../hal/display_hal.h"
+#include "../../hal/imu_hal.h"
 #include "board.h"
 #include <Arduino.h>
 #include <Arduino_GFX_Library.h>
+#include <lvgl.h>
 
-// ST7789 over SPI. Rotation is disabled on this port (BOARD_HAS_ROTATION=0)
-// — gfx->setRotation() doesn't clear the panel's GRAM, so toggling it at
-// runtime leaves the previous orientation's pixels visible as a ghost.
-// Re-enabling needs a fillScreen(0) immediately after setRotation().
+// ST7789 over SPI with native MADCTL rotation. Because setRotation() only
+// rewrites MADCTL and leaves the panel's GRAM untouched, the previous
+// orientation's pixels remain visible in the new coordinate system as a
+// ghost until LVGL overwrites them. We fillScreen(0) immediately after
+// setRotation() to wipe the GRAM in one shot, then ramp the backlight
+// back up so the change reads as deliberate.
 //
 // Backlight is a plain GPIO (no panel command). We PWM it via ledc so
 // display_hal_set_brightness() retains its 0..255 contract.
@@ -44,7 +48,33 @@ void display_hal_draw_bitmap(int32_t x, int32_t y, int32_t w, int32_t h,
     if (gfx) gfx->draw16bitRGBBitmap(x, y, (uint16_t*)pixels, w, h);
 }
 
-void display_hal_tick(void) {}
+void display_hal_tick(void) {
+    static uint8_t  last_rotation = 0;
+    static uint8_t  ramp_step = 0;
+    static uint32_t ramp_last = 0;
+
+    uint8_t rot = imu_hal_rotation_quadrant();
+    if (rot != last_rotation) {
+        display_hal_set_brightness(0);
+        last_rotation = rot;
+        if (gfx) {
+            gfx->setRotation(rot);
+            gfx->fillScreen(0x0000);
+        }
+        lv_obj_invalidate(lv_screen_active());
+        ramp_step = 1;
+        return;
+    }
+
+    if (ramp_step == 0) return;
+    uint32_t now = millis();
+    if (now - ramp_last < 25) return;
+    ramp_last = now;
+
+    static const uint8_t levels[] = {60, 120, 170, 200};
+    display_hal_set_brightness(levels[ramp_step - 1]);
+    if (++ramp_step > 4) ramp_step = 0;
+}
 
 void display_hal_round_area(int32_t* x1, int32_t* y1, int32_t* x2, int32_t* y2) {
     (void)x1; (void)y1; (void)x2; (void)y2;
