@@ -106,10 +106,16 @@ static void compute_layout(const BoardCaps& c) {
         // Tiny layout — tuned for 240x240 (LCD-1.54). Logo, BT credits,
         // and the usage "anim" line are hidden because there's no room
         // for them at this resolution.
-        L.title_y = 6;
-        L.content_y = 48;
-        L.usage_panel_h = 76;
-        L.usage_panel_gap = 8;
+        //
+        // Panel sizing math: make_panel hardcodes pad_top=pad_bottom=12,
+        // so a panel of height H has only H-24 of usable content. The
+        // reset label sits at usage_reset_y=56 and needs ~20px of line
+        // height, so the panel must be ≥ 100 for the label to stay
+        // inside the content rect (LVGL clips children that go past).
+        L.title_y = 4;
+        L.content_y = 30;
+        L.usage_panel_h = 100;
+        L.usage_panel_gap = 6;
         L.usage_bar_y = 32;
         L.usage_reset_y = 56;
         L.usage_title_font = &font_styrene_28;
