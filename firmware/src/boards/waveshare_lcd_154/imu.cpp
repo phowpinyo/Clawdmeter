@@ -19,13 +19,13 @@ static uint32_t candidate_since    = 0;
 static uint32_t last_poll_ms       = 0;
 static bool     imu_ok             = false;
 
-// QMI8658 on the LCD-1.54 is mounted 90° rotated from the AMOLED-2.16
-// reference, AND Arduino_GFX's setRotation(1) is 90° CCW (not CW like
-// the standard MADCTL convention), so the landscape axes invert. Final
-// mapping verified visually against the physical board:
-//   USB bottom (ax≈ 0, ay≈-1) → rotation 0 (portrait)
+// Both axis pairs ended up inverted relative to the AMOLED-2.16 formula
+// — the QMI8658 is mounted 180° flipped on this PCB, and Arduino_GFX's
+// setRotation() picks the opposite winding from the standard MADCTL
+// convention. Final mapping verified visually against the physical board:
+//   USB bottom (ax≈ 0, ay≈-1) → rotation 2 (portrait, "natural" for user)
 //   USB left   (ax≈+1, ay≈ 0) → rotation 3 (landscape CCW)
-//   USB top    (ax≈ 0, ay≈+1) → rotation 2 (portrait 180°)
+//   USB top    (ax≈ 0, ay≈+1) → rotation 0 (portrait flipped)
 //   USB right  (ax≈-1, ay≈ 0) → rotation 1 (landscape CW)
 static uint8_t accel_to_rotation(float ax, float ay) {
     float abs_ax = fabsf(ax);
@@ -33,7 +33,7 @@ static uint8_t accel_to_rotation(float ax, float ay) {
     if (abs_ax < TILT_THRESHOLD && abs_ay < TILT_THRESHOLD) {
         return 255;
     }
-    if (abs_ay > abs_ax) return (ay > 0) ? 2 : 0;
+    if (abs_ay > abs_ax) return (ay > 0) ? 0 : 2;
     return (ax > 0) ? 3 : 1;
 }
 
