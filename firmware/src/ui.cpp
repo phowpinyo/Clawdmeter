@@ -497,9 +497,10 @@ void ui_init(void) {
     battery_img = lv_image_create(scr);
     lv_image_set_src(battery_img, &battery_dscs[0]);
     // Top-right on the big screens; top-left on the 240×240 tiny breakpoint
-    // because the title sits at TOP_MID and a 48×48 icon on the right
-    // would clip into it.
+    // because the title sits at TOP_MID. Also scale the 48×48 source icon
+    // to 24×24 on tiny so it doesn't crowd the pct label below.
     if (L.scr_h < 280) {
+        lv_image_set_scale(battery_img, 128);   // 128 / 256 = 50% → 24×24
         lv_obj_set_pos(battery_img, 4, 4);
     } else {
         lv_obj_set_pos(battery_img, L.scr_w - 48 - L.margin, L.title_y);
