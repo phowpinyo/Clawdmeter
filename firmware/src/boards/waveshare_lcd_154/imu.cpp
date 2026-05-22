@@ -20,10 +20,13 @@ static uint32_t last_poll_ms       = 0;
 static bool     imu_ok             = false;
 
 // QMI8658 on the LCD-1.54 is mounted 90° rotated from the AMOLED-2.16
-// reference, so the axis→quadrant mapping is shifted by one cyclic step.
-// Verified empirically with the gravity-vector log: USB-bottom (ax≈0,
-// ay≈-1) maps to rotation 0; rotating the board CCW through landscape,
-// upside-down, and CW landscape walks 0→1→2→3.
+// reference, AND Arduino_GFX's setRotation(1) is 90° CCW (not CW like
+// the standard MADCTL convention), so the landscape axes invert. Final
+// mapping verified visually against the physical board:
+//   USB bottom (ax≈ 0, ay≈-1) → rotation 0 (portrait)
+//   USB left   (ax≈+1, ay≈ 0) → rotation 3 (landscape CCW)
+//   USB top    (ax≈ 0, ay≈+1) → rotation 2 (portrait 180°)
+//   USB right  (ax≈-1, ay≈ 0) → rotation 1 (landscape CW)
 static uint8_t accel_to_rotation(float ax, float ay) {
     float abs_ax = fabsf(ax);
     float abs_ay = fabsf(ay);
@@ -31,7 +34,7 @@ static uint8_t accel_to_rotation(float ax, float ay) {
         return 255;
     }
     if (abs_ay > abs_ax) return (ay > 0) ? 2 : 0;
-    return (ax > 0) ? 1 : 3;
+    return (ax > 0) ? 3 : 1;
 }
 
 void imu_hal_init(void) {
