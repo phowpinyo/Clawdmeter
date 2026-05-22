@@ -496,7 +496,14 @@ void ui_init(void) {
 
     battery_img = lv_image_create(scr);
     lv_image_set_src(battery_img, &battery_dscs[0]);
-    lv_obj_set_pos(battery_img, L.scr_w - 48 - L.margin, L.title_y);
+    // Top-right on the big screens; top-left on the 240×240 tiny breakpoint
+    // because the title sits at TOP_MID and a 48×48 icon on the right
+    // would clip into it.
+    if (L.scr_h < 280) {
+        lv_obj_set_pos(battery_img, 4, 4);
+    } else {
+        lv_obj_set_pos(battery_img, L.scr_w - 48 - L.margin, L.title_y);
+    }
 }
 
 void ui_update(const UsageData* data) {
