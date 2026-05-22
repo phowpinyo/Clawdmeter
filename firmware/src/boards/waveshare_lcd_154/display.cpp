@@ -23,8 +23,14 @@ static Arduino_ST7789*  gfx = nullptr;
 
 void display_hal_init(void) {
     bus = new Arduino_ESP32SPI(LCD_DC, LCD_CS, LCD_SCLK, LCD_MOSI, LCD_MISO);
+    // ST7789 GRAM is 240×320 but this panel is 240×240. At rotation 0 the
+    // panel maps directly to GRAM (0,0)..(239,239) — no offset. After a
+    // 90°/180° MADCTL swap the visible window has to skip the unused 80
+    // rows, so we pass row_offset2=80; Arduino_TFT::setRotation() picks
+    // the right offset per quadrant from these four args.
     gfx = new Arduino_ST7789(
-        bus, LCD_RESET, 0 /* rotation */, true /* IPS */, LCD_WIDTH, LCD_HEIGHT);
+        bus, LCD_RESET, 0 /* rotation */, true /* IPS */, LCD_WIDTH, LCD_HEIGHT,
+        0 /* col_offset1 */, 0 /* row_offset1 */, 0 /* col_offset2 */, 80 /* row_offset2 */);
 }
 
 void display_hal_begin(void) {

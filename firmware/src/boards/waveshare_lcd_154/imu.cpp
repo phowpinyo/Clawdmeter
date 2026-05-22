@@ -19,14 +19,19 @@ static uint32_t candidate_since    = 0;
 static uint32_t last_poll_ms       = 0;
 static bool     imu_ok             = false;
 
+// QMI8658 on the LCD-1.54 is mounted 90° rotated from the AMOLED-2.16
+// reference, so the axis→quadrant mapping is shifted by one cyclic step.
+// Verified empirically with the gravity-vector log: USB-bottom (ax≈0,
+// ay≈-1) maps to rotation 0; rotating the board CCW through landscape,
+// upside-down, and CW landscape walks 0→1→2→3.
 static uint8_t accel_to_rotation(float ax, float ay) {
     float abs_ax = fabsf(ax);
     float abs_ay = fabsf(ay);
     if (abs_ax < TILT_THRESHOLD && abs_ay < TILT_THRESHOLD) {
         return 255;
     }
-    if (abs_ay > abs_ax) return (ay > 0) ? 3 : 1;
-    return (ax > 0) ? 0 : 2;
+    if (abs_ay > abs_ax) return (ay > 0) ? 2 : 0;
+    return (ax > 0) ? 1 : 3;
 }
 
 void imu_hal_init(void) {
