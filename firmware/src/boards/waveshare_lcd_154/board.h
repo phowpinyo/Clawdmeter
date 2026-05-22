@@ -33,6 +33,15 @@
 // ---- IMU (QMI8658) ----
 // INT pin exists on GPIO 6 but isn't used — IMU is polled at 10Hz in imu.cpp.
 
+// ---- Power latch ----
+// The board has a soft-power latch IC. The PWR button gates the latch ON
+// momentarily; ESP32 must then drive BAT_POWER_GPIO HIGH (and keep it
+// HIGH) to hold the latch on after the user releases the button. Driving
+// LOW releases the latch → board powers off. Without this, the board
+// dies the instant the PWR button is released when running on battery.
+// Pin from Waveshare 01_factory bsp_power_manager.c.
+#define BAT_POWER_GPIO       2
+
 // ---- Buttons ----
 #define BTN_BACK_GPIO        0     // BOOT — primary, Space (PTT)
 #define BTN_FWD_GPIO         5     // PLUS — secondary, Shift+Tab (mode toggle)
